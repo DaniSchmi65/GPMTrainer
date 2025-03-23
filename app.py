@@ -3,10 +3,31 @@ import random
 import docx
 import os
 
+# Muss als erstes stehen!
 st.set_page_config(layout="wide")
 
+# Custom CSS für farbige, abgerundete Buttons
+st.markdown("""
+    <style>
+    div.stButton > button {
+        background-color: #0099ff;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 10px 20px;
+        font-size: 16px;
+        margin: 5px;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+    }
+    div.stButton > button:disabled {
+        background-color: #cccccc;
+        color: #666666;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
 def run_to_markdown(run):
-    """Konvertiert einen Run in Markdown, unterstützt fette und kursive Formatierung."""
+    """Konvertiert einen Run in Markdown und unterstützt fette und kursive Formatierung."""
     text = run.text
     if run.bold and run.italic:
         return f"***{text}***"
@@ -34,10 +55,10 @@ def load_questions_answers(docx_file):
     current_question = None
     current_answer_paragraphs = []
     for para in doc.paragraphs:
-        # Überspringe Überschrift-1-Elemente
+        # Überschrift-1 ignorieren
         if para.style.name.startswith("Heading") and "1" in para.style.name:
             continue
-        # Überschrift-2: Neue Frage
+        # Neue Frage: Überschrift-2
         if para.style.name.startswith("Heading") and "2" in para.style.name:
             if current_question is not None:
                 answer_md = "\n\n".join(paragraph_to_markdown(p) for p in current_answer_paragraphs)
@@ -52,37 +73,44 @@ def load_questions_answers(docx_file):
         qas.append((current_question, answer_md))
     return qas
 
-# Zeige aktuelles Arbeitsverzeichnis (zur Kontrolle)
+# (Optional) Anzeige des aktuellen Arbeitsverzeichnisses
 st.write("Aktuelles Arbeitsverzeichnis:", os.getcwd())
 
-# Laden der Q&A-Paare – einmal pro Session
+# Q&A-Paare einmal pro Session laden
 if "qas" not in st.session_state:
     st.session_state.qas = load_questions_answers("PMBasisAntworten.docx")
     st.session_state.current_index = random.randint(0, len(st.session_state.qas) - 1)
     st.session_state.show_answer = False
 
+# Verarbeitung der Button-Klicks:
+cols = st.columns(2)
+if cols[0].button("Antwort anzeigen", key="btn_show"):
+    st.session_state.show_answer = True
+if cols[1].button("Nächste Frage", key="btn_next"):
+    # Neuen Index wählen, der sich vom aktuellen unterscheidet (falls möglich)
+    if len(st.session_state.qas) > 1:
+        old_index = st.session_state.current_index
+        new_index = old_index
+        while new_index == old_index:
+            new_index = random.randint(0, len(st.session_state.qas) - 1)
+        st.session_state.current_index = new_index
+    else:
+        st.session_state.current_index = 0
+    st.session_state.show_answer = False
+
+# Hole Frage und Antwort basierend auf dem aktuellen Index
 question, answer_md = st.session_state.qas[st.session_state.current_index]
 
 st.title("Fragen und Antworten App")
-
 st.header("Frage")
 st.write(question)
 
-# Mehrzeiliges Eingabefeld mit dynamischem Key, damit es bei einer neuen Frage leer erscheint.
+# Das Eingabefeld erhält einen dynamischen Key, sodass es bei einer neuen Frage geleert wird.
 user_input = st.text_area("Deine Antwort (optional):", height=100, key=f"user_input_{st.session_state.current_index}")
 
-# Button-Container (untereinander)
-with st.container():
-    # Bei MC-Fragen erfolgt die Anzeige der Antwort automatisch,
-    # sonst erst bei Klick auf "Antwort anzeigen".
-    if not question.startswith("MC"):
-        if st.button("Antwort anzeigen"):
-            st.session_state.show_answer = True
-    if st.button("Nächste Frage"):
-        st.session_state.current_index = random.randint(0, len(st.session_state.qas) - 1)
-        st.session_state.show_answer = False
-
-# Antwortanzeige
+# Anzeige der Antwort:
+# - Bei MC-Fragen (Frage beginnt mit "MC") wird die Antwort immer sofort angezeigt.
+# - Bei anderen Fragen nur, wenn "Antwort anzeigen" gedrückt wurde.
 if question.startswith("MC") or st.session_state.get("show_answer", False):
     st.header("Antwort")
     st.markdown(answer_md, unsafe_allow_html=True)
