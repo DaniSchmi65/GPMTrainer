@@ -2,6 +2,7 @@ import streamlit as st
 import random
 import docx
 import os
+import base64
 
 # Muss als erstes stehen!
 st.set_page_config(layout="wide")
@@ -26,8 +27,29 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# --- PDF Anzeige-Funktion ---
+def display_pdf(file_path):
+    try:
+        with open(file_path, "rb") as f:
+            base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600px" type="application/pdf"></iframe>'
+        st.markdown(pdf_display, unsafe_allow_html=True)
+    except Exception as e:
+        st.error(f"PDF konnte nicht geladen werden: {e}")
+
+# --- PDF Toggle Button ---
+# Initialisiere den PDF-Toggle im Session-State, falls nicht vorhanden.
+if "show_pdf" not in st.session_state:
+    st.session_state.show_pdf = False
+
+if st.button("PDF anzeigen/ausblenden", key="btn_pdf"):
+    st.session_state.show_pdf = not st.session_state.show_pdf
+
+if st.session_state.show_pdf:
+    display_pdf("PMBasisAntworten.pdf")
+
+# --- Funktionen zum Umwandeln der Word-Inhalte in Markdown ---
 def run_to_markdown(run):
-    """Konvertiert einen Run in Markdown und unterstützt fette und kursive Formatierung."""
     text = run.text
     if run.bold and run.italic:
         return f"***{text}***"
@@ -39,7 +61,6 @@ def run_to_markdown(run):
         return text
 
 def paragraph_to_markdown(para):
-    """Konvertiert einen Paragraphen in Markdown, indem alle Runs verarbeitet werden."""
     return "".join(run_to_markdown(run) for run in para.runs)
 
 def load_questions_answers(docx_file):
@@ -73,21 +94,18 @@ def load_questions_answers(docx_file):
         qas.append((current_question, answer_md))
     return qas
 
-# (Optional) Anzeige des aktuellen Arbeitsverzeichnisses
-st.write("Aktuelles Arbeitsverzeichnis:", os.getcwd())
-
 # Q&A-Paare einmal pro Session laden
 if "qas" not in st.session_state:
     st.session_state.qas = load_questions_answers("PMBasisAntworten.docx")
     st.session_state.current_index = random.randint(0, len(st.session_state.qas) - 1)
     st.session_state.show_answer = False
 
-# Verarbeitung der Button-Klicks:
+# --- Buttons für "Antwort anzeigen" und "Nächste Frage" ---
+# Die Buttons werden in zwei Spalten direkt unter der Frage platziert.
 cols = st.columns(2)
 if cols[0].button("Antwort anzeigen", key="btn_show"):
     st.session_state.show_answer = True
 if cols[1].button("Nächste Frage", key="btn_next"):
-    # Neuen Index wählen, der sich vom aktuellen unterscheidet (falls möglich)
     if len(st.session_state.qas) > 1:
         old_index = st.session_state.current_index
         new_index = old_index
@@ -98,18 +116,18 @@ if cols[1].button("Nächste Frage", key="btn_next"):
         st.session_state.current_index = 0
     st.session_state.show_answer = False
 
-# Hole Frage und Antwort basierend auf dem aktuellen Index
+# Hole aktuelle Frage und Antwort basierend auf dem (möglicherweise neuen) Index
 question, answer_md = st.session_state.qas[st.session_state.current_index]
 
-#st.title("Fragen und Antworten App")
-#st.header("Frage")
+st.title("Fragen und Antworten App")
+st.header("Frage")
 st.write(question)
 
 # Das Eingabefeld erhält einen dynamischen Key, sodass es bei einer neuen Frage geleert wird.
 user_input = st.text_area("Deine Antwort (optional):", height=100, key=f"user_input_{st.session_state.current_index}")
 
-# Anzeige der Antwort:
-# - Bei MC-Fragen (Frage beginnt mit "MC") wird die Antwort immer sofort angezeigt.
+# Antwortanzeige:
+# - Bei MC-Fragen wird die Antwort sofort angezeigt.
 # - Bei anderen Fragen nur, wenn "Antwort anzeigen" gedrückt wurde.
 if question.startswith("MC") or st.session_state.get("show_answer", False):
     st.header("Antwort")
