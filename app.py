@@ -101,8 +101,8 @@ if cols[1].button("Nächste Frage", key="btn_next"):
 # Hole Frage und Antwort basierend auf dem aktuellen Index
 question, answer_md = st.session_state.qas[st.session_state.current_index]
 
-st.title("Fragen und Antworten App")
-st.header("Frage")
+#st.title("Fragen und Antworten App")
+#st.header("Frage")
 st.write(question)
 
 # Das Eingabefeld erhält einen dynamischen Key, sodass es bei einer neuen Frage geleert wird.
