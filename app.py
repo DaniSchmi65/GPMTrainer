@@ -3,6 +3,7 @@ import random
 import docx
 import os
 import base64
+import streamlit.components.v1 as components
 
 # Muss als erstes stehen!
 st.set_page_config(layout="wide")
@@ -27,18 +28,18 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- PDF Anzeige-Funktion ---
+# --- PDF Anzeige-Funktion als Toggle mit st.components.v1.html() ---
 def display_pdf(file_path):
     try:
         with open(file_path, "rb") as f:
-            base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600px" type="application/pdf"></iframe>'
-        st.markdown(pdf_display, unsafe_allow_html=True)
+            base64_pdf = base64.b64encode(f.read()).decode("utf-8")
+        # Der iframe wird über components.html eingebettet.
+        pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600px" style="border: none;"></iframe>'
+        components.html(pdf_display, height=600, scrolling=True)
     except Exception as e:
         st.error(f"PDF konnte nicht geladen werden: {e}")
 
-# --- PDF Toggle Button ---
-# Initialisiere den PDF-Toggle im Session-State, falls nicht vorhanden.
+# Toggle-Status im Session-State
 if "show_pdf" not in st.session_state:
     st.session_state.show_pdf = False
 
@@ -76,10 +77,8 @@ def load_questions_answers(docx_file):
     current_question = None
     current_answer_paragraphs = []
     for para in doc.paragraphs:
-        # Überschrift-1 ignorieren
         if para.style.name.startswith("Heading") and "1" in para.style.name:
             continue
-        # Neue Frage: Überschrift-2
         if para.style.name.startswith("Heading") and "2" in para.style.name:
             if current_question is not None:
                 answer_md = "\n\n".join(paragraph_to_markdown(p) for p in current_answer_paragraphs)
@@ -94,14 +93,16 @@ def load_questions_answers(docx_file):
         qas.append((current_question, answer_md))
     return qas
 
+# Anzeige des aktuellen Arbeitsverzeichnisses (zur Kontrolle)
+st.write("Aktuelles Arbeitsverzeichnis:", os.getcwd())
+
 # Q&A-Paare einmal pro Session laden
 if "qas" not in st.session_state:
     st.session_state.qas = load_questions_answers("PMBasisAntworten.docx")
     st.session_state.current_index = random.randint(0, len(st.session_state.qas) - 1)
     st.session_state.show_answer = False
 
-# --- Buttons für "Antwort anzeigen" und "Nächste Frage" ---
-# Die Buttons werden in zwei Spalten direkt unter der Frage platziert.
+# Platzierung der Buttons in zwei Spalten (über dem Eingabefeld)
 cols = st.columns(2)
 if cols[0].button("Antwort anzeigen", key="btn_show"):
     st.session_state.show_answer = True
@@ -116,7 +117,7 @@ if cols[1].button("Nächste Frage", key="btn_next"):
         st.session_state.current_index = 0
     st.session_state.show_answer = False
 
-# Hole aktuelle Frage und Antwort basierend auf dem (möglicherweise neuen) Index
+# Aktuelle Frage und Antwort neu auslesen
 question, answer_md = st.session_state.qas[st.session_state.current_index]
 
 st.title("Fragen und Antworten App")
@@ -127,8 +128,7 @@ st.write(question)
 user_input = st.text_area("Deine Antwort (optional):", height=100, key=f"user_input_{st.session_state.current_index}")
 
 # Antwortanzeige:
-# - Bei MC-Fragen wird die Antwort sofort angezeigt.
-# - Bei anderen Fragen nur, wenn "Antwort anzeigen" gedrückt wurde.
+# Bei MC-Fragen wird die Antwort sofort angezeigt.
 if question.startswith("MC") or st.session_state.get("show_answer", False):
     st.header("Antwort")
     st.markdown(answer_md, unsafe_allow_html=True)
