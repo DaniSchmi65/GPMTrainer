@@ -56,7 +56,6 @@ def load_questions_answers(docx_file):
         qas.append((current_question, answer_md))
     return qas
 
-st.write("Aktuelles Arbeitsverzeichnis:", os.getcwd())
 
 if "qas" not in st.session_state:
     st.session_state.qas = load_questions_answers("PMBasisAntworten.docx")
@@ -79,8 +78,7 @@ if cols[1].button("Nächste Frage", key="btn_next"):
 
 question, answer_md = st.session_state.qas[st.session_state.current_index]
 
-st.title("Fragen und Antworten App")
-st.header("Frage")
+
 st.write(question)
 
 user_input = st.text_area("Deine Antwort (optional):", height=100, key=f"user_input_{st.session_state.current_index}")
